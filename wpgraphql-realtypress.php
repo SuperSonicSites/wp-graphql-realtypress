@@ -2,9 +2,9 @@
 /**
  * Plugin Name: WPGraphQL for RealtyPress
  * Description : Exposes RealtyPress data through the WPGraphQL schema.
- * Version     : 0.1.4
- * Author      : Your Name
- * License     : GPL-2.0+
+ * Version     : 0.1.2
+ * Author      : Your Name
+ * License     : GPL‑2.0+
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -12,65 +12,90 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Detect RealtyPress presence (Lite or Premium), falling back to table existence.
+ * Helper: best‑effort detection of RealtyPress (Lite or Premium).
+ *
+ * Checks constants, classes, functions, and—last resort—the existence
+ * of the core wp_rps_property table.
  *
  * @return bool
  */
-function wprp_realtypress_is_present(): bool {
+function wprp_realtypress_is_present() : bool {
+
 	global $wpdb;
-	static $present;
 
-	if ( isset( $present ) ) {
-		return $present;
-	}
-
-	$table_like   = $wpdb->esc_like( "{$wpdb->prefix}rps_property" );
 	$table_exists = (bool) $wpdb->get_var(
-		$wpdb->prepare( 'SHOW TABLES LIKE %s', $table_like )
+		$wpdb->prepare(
+			'SHOW TABLES LIKE %s',
+			$wpdb->esc_like( "{$wpdb->prefix}rps_property" )
+		)
 	);
 
-	$present = (
-		defined( 'RPS_PLUGIN_VERSION' )  ||
-		defined( 'RPS_VERSION' )         ||
-		class_exists( '\RealtyPressPremium' ) ||
-		function_exists( 'rps_init' )    ||
-		$table_exists
-	);
-
-	return $present;
+	return
+		defined( 'RPS_PLUGIN_VERSION' )  || // Premium (current)
+		defined( 'RPS_VERSION' )         || // Lite
+		class_exists( '\RealtyPressPremium' )
+		|| function_exists( 'rps_init' ) // Legacy bootstrap
+		|| $table_exists;                // Fallback (user renamed constants)
 }
 
 /**
- * Delay loading our schema modules until WPGraphQL is initializing its own schema.
+ * Defer bootstrapping until **init** so every other plugin has already
+ * loaded.  This avoids a race where our earlier test ran before
+ * RealtyPress defined its constants.
  */
 add_action(
-	'graphql_init',
-	function() {
-		// 1) WPGraphQL present?
+	'init',
+	function () {
+
 		if ( ! class_exists( '\WPGraphQL' ) ) {
-			add_action( 'admin_notices', function() {
-				echo '<div class="notice notice-error"><p>';
-				esc_html_e( 'WPGraphQL for RealtyPress requires WPGraphQL to be active.', 'wpgraphql-realtypress' );
-				echo '</p></div>';
-			} );
+			// WPGraphQL missing
+			add_action(
+				'admin_notices',
+				function () {
+					printf(
+						'<div class="notice notice-error"><p>%s</p></div>',
+						esc_html__(
+							'WPGraphQL for RealtyPress requires the “WPGraphQL” plugin to be active.',
+							'wpgraphql-realtypress'
+						)
+					);
+				}
+			);
 			return;
 		}
 
-		// 2) RealtyPress present?
 		if ( ! wprp_realtypress_is_present() ) {
-			add_action( 'admin_notices', function() {
-				echo '<div class="notice notice-error"><p>';
-				esc_html_e( 'WPGraphQL for RealtyPress requires RealtyPress (Lite or Premium) to be active.', 'wpgraphql-realtypress' );
-				echo '</p></div>';
-			} );
+			// RealtyPress missing
+			add_action(
+				'admin_notices',
+				function () {
+					printf(
+						'<div class="notice notice-error"><p>%s</p></div>',
+						esc_html__(
+							'WPGraphQL for RealtyPress couldn’t detect RealtyPress. Please activate either RealtyPress Premium or RealtyPress Lite.',
+							'wpgraphql-realtypress'
+						)
+					);
+				}
+			);
 			return;
 		}
 
-		// 3) Load all our schema modules
-		$base = plugin_dir_path( __FILE__ ) . 'includes/';
-		require_once $base . 'types.php';
-		require_once $base . 'loaders.php';
-		require_once $base . 'resolvers.php';
-		require_once $base . 'connections.php';
-	}
+		// ------------------------------------------------------------------
+		//  All dependencies satisfied — load plugin modules.
+		// ------------------------------------------------------------------
+		foreach (
+			[
+				'includes/types.php',
+				'includes/loaders.php',
+				'includes/resolvers.php',
+				'includes/connections.php',
+			]
+			as $module
+		) {
+			require_once plugin_dir_path( __FILE__ ) . $module;
+		}
+	},
+	/* priority */ 20   // After most plugins’ own init callbacks
 );
+
