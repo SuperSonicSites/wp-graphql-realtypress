@@ -14,7 +14,6 @@ defined( 'ABSPATH' ) || exit;
 use WPGraphQL\Data\Connection\ConnectionHelper;
 use WPGraphQL\AppContext;
 use GraphQL\Type\Definition\ResolveInfo;
-use wpdb;
 
 final class Resolvers {
 
