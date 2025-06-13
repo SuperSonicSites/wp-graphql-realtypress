@@ -31,7 +31,7 @@ add_action( 'graphql_register_types', function () {
 			$fields,
 			[
 				'id' => [
-					'type'        => 'ID!',
+					'type'        => [ 'non_null' => 'ID' ],
 					'description' => sprintf(
 						/* translators: %s: SQL table name */
 						__( 'Relay‑compliant global ID derived from the primary key of %s.', 'wpgraphql-realtypress' ),
