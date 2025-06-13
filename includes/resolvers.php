@@ -1,10 +1,6 @@
 <?php
 /**
- * Stand‑alone resolvers used by WPGraphQL‑RealtyPress.
- *
- * NOTE: Connection registration now lives in includes/connections.php
- * to avoid double‑registration.  This file only holds re‑usable resolver
- * methods.
+ * Register Root‑level connections for WPGraphQL‑RealtyPress.
  */
 
 namespace WPGraphQL\RealtyPress;
@@ -14,58 +10,137 @@ defined( 'ABSPATH' ) || exit;
 use WPGraphQL\Data\Connection\ConnectionHelper;
 use WPGraphQL\AppContext;
 use GraphQL\Type\Definition\ResolveInfo;
-use wpdb;
 
-final class Resolvers {
+/**
+ * Hook into schema generation.
+ */
+add_action(
+	'graphql_register_types',
+	function () {
 
-	/**
-	 * Resolve a Relay‑style connection of Property nodes.
-	 *
-	 * Used by <RootQuery>.properties in includes/connections.php.
-	 *
-	 * @param mixed      $root
-	 * @param array      $args
-	 * @param AppContext $context
-	 * @param ResolveInfo $info
-	 *
-	 * @return array Relay‑formatted connection array.
-	 */
-	public static function resolve_properties_connection(
-		$root,
-		array $args,
-		AppContext $context,
-		ResolveInfo $info
-	) : array {
-
-		/** @var wpdb $wpdb */
 		global $wpdb;
 
-		$where    = [];
-		$sql_args = [];
-
-		// -- Simple filters --------------------------------------------------
-		if ( ! empty( $args['where']['City'] ) ) {
-			$where[]    = 'City = %s';
-			$sql_args[] = $args['where']['City'];
-		}
-		if ( ! empty( $args['where']['minPrice'] ) ) {
-			$where[]    = 'Price >= %f';
-			$sql_args[] = $args['where']['minPrice'];
-		}
-
-		$where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
-
-		// wpdb::prepare needs each placeholder passed separately.  We use
-		// the splat operator to expand the $sql_args array.
-		$sql = $wpdb->prepare(
-			"SELECT property_id FROM {$wpdb->prefix}rps_property {$where_sql}",
-			...$sql_args
+		/*
+		 * ------------------------------------------------------------------
+		 *  <RootQuery>.properties
+		 * ------------------------------------------------------------------
+		 *  Now delegates to Resolvers::resolve_properties_connection
+		 *  to avoid duplicated SQL logic.
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'Property',
+				'fromFieldName'      => 'properties',
+				'connectionTypeName' => 'Properties',
+				'args'               => [
+					'where' => [
+						'type'        => 'PropertyFilterInput',
+						'description' => __( 'Filter properties by field values', 'wpgraphql-realtypress' ),
+					],
+				],
+				'resolve'            => [ Resolvers::class, 'resolve_properties_connection' ],
+			]
 		);
 
-		$ids = $wpdb->get_col( $sql );
+		/*
+		 * ------------------------------------------------------------------
+		 *  <RootQuery>.allPropertyPhotos
+		 * ------------------------------------------------------------------
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'PropertyPhoto',
+				'fromFieldName'      => 'allPropertyPhotos',
+				'connectionTypeName' => 'PropertyPhotos',
+				'resolve'            => function ( $root, array $args, AppContext $context, ResolveInfo $info ) use ( $wpdb ) {
 
-		return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+					$ids = $wpdb->get_col( "SELECT details_id FROM {$wpdb->prefix}rps_property_photos" );
+
+					return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+				},
+			]
+		);
+
+		/*
+		 * <RootQuery>.allPropertyRooms
+		 * ------------------------------------------------------------------
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'PropertyRoom',
+				'fromFieldName'      => 'allPropertyRooms',
+				'connectionTypeName' => 'PropertyRooms',
+				'resolve'            => function ( $root, array $args, AppContext $context, ResolveInfo $info ) use ( $wpdb ) {
+
+					$ids = $wpdb->get_col( "SELECT room_id FROM {$wpdb->prefix}rps_property_rooms" );
+
+					return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+				},
+			]
+		);
+
+		/*
+		 * <RootQuery>.allRealtyAgents
+		 * ------------------------------------------------------------------
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'RealtyAgent',
+				'fromFieldName'      => 'allRealtyAgents',
+				'connectionTypeName' => 'RealtyAgents',
+				'resolve'            => function ( $root, array $args, AppContext $context, ResolveInfo $info ) use ( $wpdb ) {
+
+					$ids = $wpdb->get_col( "SELECT agent_id FROM {$wpdb->prefix}rps_agent" );
+
+					return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+				},
+			]
+		);
+
+		/*
+		 * <RootQuery>.allRealtyBoards
+		 * ------------------------------------------------------------------
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'RealtyBoard',
+				'fromFieldName'      => 'allRealtyBoards',
+				'connectionTypeName' => 'RealtyBoards',
+				'resolve'            => function ( $root, array $args, AppContext $context, ResolveInfo $info ) use ( $wpdb ) {
+
+					$ids = $wpdb->get_col( "SELECT OrganizationID FROM {$wpdb->prefix}rps_boards" );
+
+					return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+				},
+			]
+		);
+
+		/*
+		 * <RootQuery>.allRealtyOffices
+		 * ------------------------------------------------------------------
+		 */
+		register_graphql_connection(
+			[
+				'fromType'           => 'RootQuery',
+				'toType'             => 'RealtyOffice',
+				'fromFieldName'      => 'allRealtyOffices',
+				'connectionTypeName' => 'RealtyOffices',
+				'resolve'            => function ( $root, array $args, AppContext $context, ResolveInfo $info ) use ( $wpdb ) {
+
+					$ids = $wpdb->get_col( "SELECT office_id FROM {$wpdb->prefix}rps_office" );
+
+					return ConnectionHelper::connection_from_ids( $ids, $args, $context, $info );
+				},
+			]
+		);
 	}
-}
+);
+
+
 
 
