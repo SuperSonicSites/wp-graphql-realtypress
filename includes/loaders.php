@@ -48,12 +48,44 @@ if ( wprp_has_dataloader_api() ) {
     }
 
     /**
-     * Register our loader with WPGraphQL.
+     * DataLoader for Property records.
+     */
+    class PropertyLoader extends \WPGraphQL\Data\DataLoader\AbstractDataLoader {
+
+        /**
+         * Fetch a property row by ID.
+         *
+         * @param mixed $id
+         * @return array|null
+         */
+        public function load( $id ) {
+            global $wpdb;
+
+            $sql = $wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}rps_property WHERE property_id = %d",
+                $id
+            );
+
+            return $wpdb->get_row( $sql, ARRAY_A );
+        }
+
+        /**
+         * Prime the cache (unused for now).
+         *
+         * @param mixed $id
+         * @param mixed $value
+         */
+        protected function prime( $id, $value ) {}
+    }
+
+    /**
+     * Register our loaders with WPGraphQL.
      */
     add_filter(
         'graphql_data_loaders',
         function ( array $loaders ) {
             $loaders['realty_board'] = RealtyBoardLoader::class;
+            $loaders['property']     = PropertyLoader::class;
             return $loaders;
         }
     );
@@ -63,7 +95,13 @@ if ( wprp_has_dataloader_api() ) {
     /**
      * Fallback stub so references to RealtyBoardLoader never fatal.
      */
-    class RealtyBoardLoader {
+class RealtyBoardLoader {
+        public function load( $id ) {
+            return null;
+        }
+    }
+
+    class PropertyLoader {
         public function load( $id ) {
             return null;
         }
