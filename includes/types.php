@@ -30,8 +30,8 @@ add_action( 'graphql_register_types', function () {
 		return array_merge(
 			$fields,
 			[
-				'id' => [
-					'type'        => 'ID',
+                                'id' => [
+                                        'type'        => 'ID!',
 					'description' => sprintf(
 						/* translators: %s: SQL table name */
 						__( 'Relay‑compliant global ID derived from the primary key of %s.', 'wpgraphql-realtypress' ),
