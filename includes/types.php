@@ -21,75 +21,34 @@ add_action( 'graphql_register_types', function () {
 		],
 	] );
 
-	/*
-	 * -------------------------------------------------------------------
-	 *  Helper used below to DRY the “id” field definition.
-	 * -------------------------------------------------------------------
-	 */
-	$add_id_field = function ( string $type_name, string $primary_key, array $fields, string $table_name ) : array {
-		return array_merge(
-			$fields,
-			[
-				'id' => [
-					'type'        => 'ID',
-					'description' => sprintf(
-						/* translators: %s: SQL table name */
-						__( 'Relay‑compliant global ID derived from the primary key of %s.', 'wpgraphql-realtypress' ),
-						$table_name
-					),
-					'resolve'     => function ( $row ) use ( $type_name, $primary_key ) {
-						$value = is_array( $row )
-							? ( $row[ $primary_key ] ?? null )
-							: ( $row->$primary_key ?? null );
-
-						return graphql_encode_global_id( $type_name, $value );
-					},
-				],
-			]
-		);
+	// Helper to inject `id` field
+	$add_id = function( string $type_name, string $pk, array $fields, string $table ) : array {
+		static $cache = [];
+		$key = $type_name . '|' . $pk;
+		if ( isset( $cache[ $key ] ) ) {
+			return $cache[ $key ];
+		}
+		$fields['id'] = [
+			'type'        => 'ID',
+			'description' => sprintf( __( 'Global Relay ID (%s)', 'wpgraphql-realtypress' ), $table ),
+			'resolve'     => function( $row ) use ( $type_name, $pk ) {
+				$value = is_array( $row ) ? ( $row[ $pk ] ?? null ) : ( $row->$pk ?? null );
+				return graphql_encode_global_id( $type_name, $value );
+			},
+		];
+		return $cache[ $key ] = $fields;
 	};
 
-	/*
-	 * -------------------------------------------------------------------
-	 *  RealtyAgent  – wp_rps_agent
-	 * -------------------------------------------------------------------
-	 */
-	$realtyAgent_fields = [
-		'agent_id'             => 'String',
-		'AgentID'              => 'String',
-		'OfficeID'             => 'String',
-		'Name'                 => 'String',
-		'ID'                   => 'String',
-		'LastUpdated'          => 'String',
-		'Position'             => 'String',
-		'EducationCredentials' => 'String',
-		'Photos'               => 'String',
-		'PhotoLastUpdated'     => 'String',
-		'Specialties'          => 'String',
-		'Specialty'            => 'String',
-		'Languages'            => 'String',
-		'Language'             => 'String',
-		'TradingAreas'         => 'String',
-		'TradingArea'          => 'String',
-		'Phones'               => 'String',
-		'Websites'             => 'String',
-		'Designations'         => 'String',
-		'CustomAgent'          => 'Boolean',
-		'Email'                => 'String',
-	];
-
-	register_graphql_object_type( 'RealtyAgent', [
-		'description' => __( 'Agent record from RealtyPress', 'wpgraphql-realtypress' ),
-		'interfaces'  => [ 'Node', 'DatabaseIdentifier' ],
-		'fields'      => function () use ( $realtyAgent_fields, $add_id_field ) {
-			$fields = [];
-			foreach ( $realtyAgent_fields as $col => $type ) {
-				$fields[ $col ] = [
-					'type'        => $type,
-					'description' => "Column $col from wp_rps_agent",
-				];
-			}
-			return $add_id_field( 'RealtyAgent', 'agent_id', $fields, 'wp_rps_agent' );
+	// 1) Single-property fetch
+	register_graphql_field( 'RootQuery', 'property', [
+		'type'        => 'Property',
+		'description' => __( 'Fetch a single property by ID', 'wpgraphql-realtypress' ),
+		'args'        => [
+			'id' => [ 'type' => 'ID!' ],
+		],
+		'resolve'     => function( $_, $args ) {
+			list( , $prop_id ) = graphql_decode_global_id( $args['id'] );
+			return \RealtyPress_DDF_CRUD::get_property_by_id( $prop_id );
 		},
 	] );
 
