@@ -12,32 +12,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Detect RealtyPress presence (Lite or Premium), falling back to table existence.
+ * Detect RealtyPress presence (Lite or Premium).
  *
  * @return bool
  */
 function wprp_realtypress_is_present(): bool {
-	global $wpdb;
-	static $present;
+        static $present;
 
-	if ( isset( $present ) ) {
-		return $present;
-	}
+        if ( isset( $present ) ) {
+                return $present;
+        }
 
-	$table_like   = $wpdb->esc_like( "{$wpdb->prefix}rps_property" );
-	$table_exists = (bool) $wpdb->get_var(
-		$wpdb->prepare( 'SHOW TABLES LIKE %s', $table_like )
-	);
+        $present = (
+                defined( 'RPS_PLUGIN_VERSION' )      ||
+                defined( 'RPS_VERSION' )             ||
+                class_exists( '\RealtyPressPremium' ) ||
+                function_exists( 'rps_init' )        ||
+                class_exists( '\RealtyPress_DDF_CRUD' )
+        );
 
-	$present = (
-		defined( 'RPS_PLUGIN_VERSION' )  ||
-		defined( 'RPS_VERSION' )         ||
-		class_exists( '\RealtyPressPremium' ) ||
-		function_exists( 'rps_init' )    ||
-		$table_exists
-	);
-
-	return $present;
+        return $present;
 }
 
 /**
