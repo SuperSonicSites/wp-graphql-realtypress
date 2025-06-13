@@ -27,11 +27,11 @@ add_action( 'graphql_register_types', function () {
 	 * -------------------------------------------------------------------
 	 */
 	$add_id_field = function ( string $type_name, string $primary_key, array $fields, string $table_name ) : array {
-		return array_merge(
-			$fields,
-			[
-				'id' => [
-					'type'        => 'ID',
+                return array_merge(
+                        $fields,
+                        [
+                                'id' => [
+                                        'type'        => 'ID!',
 					'description' => sprintf(
 						/* translators: %s: SQL table name */
 						__( 'Relay‑compliant global ID derived from the primary key of %s.', 'wpgraphql-realtypress' ),
