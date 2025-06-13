@@ -15,14 +15,17 @@ final class Resolvers {
 		$where    = [];
 		$sql_args = [];
 
-		if ( ! empty( $args['where']['City'] ) ) {
-			$where[]    = 'City = %s';
-			$sql_args[] = $args['where']['City'];
-		}
-		if ( ! empty( $args['where']['minPrice'] ) ) {
-			$where[]    = 'Price >= %f';
-			$sql_args[] = $args['where']['minPrice'];
-		}
+                $filters = $args['where'] ?? [];
+
+                if ( isset( $filters['City'] ) && '' !== $filters['City'] ) {
+                        $where[]    = 'City = %s';
+                        $sql_args[] = $filters['City'];
+                }
+
+                if ( isset( $filters['minPrice'] ) && '' !== $filters['minPrice'] ) {
+                        $where[]    = 'Price >= %f';
+                        $sql_args[] = $filters['minPrice'];
+                }
 
 		$where_sql = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
 		$sql = $wpdb->prepare(
